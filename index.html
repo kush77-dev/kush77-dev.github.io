@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lucky Wheel</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: radial-gradient(circle, #f5f5f5, #ddd);
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    .wheel-container {
+      position: relative;
+      display: inline-block;
+      margin-top: 40px;
+    }
+    canvas {
+      border: 10px solid #222;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.4);
+      z-index: 2;
+      position: relative;
+    }
+    .arrow {
+      position: absolute;
+      top: 200px;
+      left: 50%;
+      transform: translateX(400%) rotate(270deg);
+      width: 0;
+      height: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-bottom: 30px solid #333;
+      pointer-events: none;
+      filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.3));
+      transition: transform 0.05s;
+      z-index: 3;
+    }
+    @keyframes shake {
+      0% { transform: translateX(-50%) rotate(50deg); }
+      25% { transform: translate(-55%, 0) rotate(50deg); }
+      50% { transform: translateX(-50%) rotate(50deg); }
+      75% { transform: translate(-45%, 0) rotate(50deg); }
+      100% { transform: translateX(-50%) rotate(50deg); }
+    }
+    .stand {
+      position: absolute;
+      top: 380px;
+      left: 50%;
+      width: 100px;
+      height: 120px;
+      background: linear-gradient(to bottom, #888, #444);
+      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+      transform: translateX(-50%);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+      z-index: 1;
+    }
+    .base {
+      position: absolute;
+      top: 480px;
+      left: 50%;
+      width: 200px;
+      height: 30px;
+      background: linear-gradient(to bottom, #555, #222);
+      border-radius: 10px;
+      transform: translateX(-50%);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+      z-index: 0;
+    }
+    button {
+      padding: 8px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 100px;
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+  <div class="wheel-container">
+    <div class="arrow"></div>
+    <canvas id="wheel" width="400" height="400"></canvas>
+    <div class="stand"></div>
+    <div class="base"></div>
+  </div>
+  <button onclick="spinWheel()">🎯 Spin</button>
+  <div id="result"></div>
+
+  <script>
+    const canvas = document.getElementById("wheel");
+    const ctx = canvas.getContext("2d");
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 180;
+    const arrow = document.querySelector(".arrow");
+
+    // --- Edit these ---
+    let segments = ["Doll", "Try again", "Free spin", "Try again", "Toy car", "Try again"];
+    let baseColors = ["#e74c3c", "#f1c40f", "#2ecc71", "#3498db", "#9b59b6", "#e67e22"];
+    // Probabilities: same order as `segments`. Can be any non-negative numbers (they will be normalized).
+    let probabilities = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    // -------------------
+
+    let currentAngle = 0; // degrees
+    let spinning = false;
+    let tickSound = new Audio("https://www.soundjay.com/mechanical/sounds/mechanical-click-1.mp3");
+
+    function drawWheel() {
+      const segmentAngle = (2 * Math.PI) / segments.length;
+
+      for (let i = 0; i < segments.length; i++) {
+        const startAngle = i * segmentAngle;
+        const endAngle = startAngle + segmentAngle;
+
+        const grad = ctx.createLinearGradient(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
+        grad.addColorStop(0, lightenColor(baseColors[i % baseColors.length], 30));
+        grad.addColorStop(1, baseColors[i % baseColors.length]);
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX + Math.cos(startAngle) * radius, centerY + Math.sin(startAngle) * radius);
+        ctx.strokeStyle = "#fff";
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(startAngle + segmentAngle / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px Arial";
+        ctx.shadowColor = "rgba(0,0,0,0.3)";
+        ctx.shadowBlur = 3;
+        ctx.fillText(segments[i], radius - 15, 10);
+        ctx.restore();
+      }
+
+      const dots = 36;
+      for (let i = 0; i < dots; i++) {
+        const angle = (2 * Math.PI / dots) * i;
+        const x = centerX + Math.cos(angle) * (radius + 10);
+        const y = centerY + Math.sin(angle) * (radius + 10);
+
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = i % 2 === 0 ? "#fff700" : "#ff4d4d";
+        ctx.shadowColor = "#ff0";
+        ctx.shadowBlur = 5;
+        ctx.fill();
+      }
+
+      const metallicGrad = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, 50);
+      metallicGrad.addColorStop(0, "#ccc");
+      metallicGrad.addColorStop(1, "#888");
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 40, 0, 2 * Math.PI);
+      ctx.fillStyle = metallicGrad;
+      ctx.fill();
+      ctx.strokeStyle = "#666";
+      ctx.stroke();
+    }
+
+    function lightenColor(color, percent) {
+      const num = parseInt(color.replace("#", ""), 16);
+      const amt = Math.round(2.55 * percent);
+      const R = (num >> 16) + amt;
+      const G = (num >> 8 & 0x00FF) + amt;
+      const B = (num & 0x0000FF) + amt;
+      return "#" + (
+        0x1000000 +
+        (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+        (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+        (B < 255 ? (B < 1 ? 0 : B) : 255)
+      ).toString(16).slice(1);
+    }
+
+    function pickWeightedSegment() {
+      // defensive: if mismatch lengths, use uniform weights
+      if (!Array.isArray(probabilities) || probabilities.length !== segments.length) {
+        console.warn("probabilities length mismatch - using uniform weights");
+        return Math.floor(Math.random() * segments.length);
+      }
+      const total = probabilities.reduce((a, b) => a + Math.max(0, b), 0);
+      if (total === 0) {
+        return Math.floor(Math.random() * segments.length);
+      }
+      let r = Math.random() * total;
+      let cum = 0;
+      for (let i = 0; i < probabilities.length; i++) {
+        cum += Math.max(0, probabilities[i]);
+        if (r <= cum) return i;
+      }
+      return probabilities.length - 1;
+    }
+
+    // easing used to create realistic slow-down
+    function easeOutCubic(x) {
+      return 1 - Math.pow(1 - x, 3);
+    }
+
+    function spinWheel() {
+      if (spinning) return;
+      spinning = true;
+
+      // pick winning index using our weighted function
+      const winningIndex = pickWeightedSegment();
+
+      const n = segments.length;
+      const segmentAngle = 360 / n;
+      // center of the winning slice in the same formula used to detect slice under arrow:
+      const randomOffset = (Math.random() - 0.5) * (segmentAngle * 0.8); 
+// Random offset up to 80% of slice width, but centered
+const exactStopAngle = (segments.length - winningIndex) * segmentAngle - (segmentAngle / 2) + randomOffset;
+
+      // normalize current angle to [0, 360)
+      const startAngle = currentAngle;
+      const startNormalized = ((startAngle % 360) + 360) % 360;
+
+      // compute minimal positive delta to reach exactStopAngle
+      const delta = ((exactStopAngle - startNormalized) + 360) % 360;
+
+      // add a few full rotations so it feels random
+      const extraRotations = Math.floor(Math.random() * 3) + 5; // 5..7 full spins
+      const targetAngle = startAngle + extraRotations * 360 + delta;
+
+      // animation duration (ms) - varies slightly for natural feel
+      const duration = 4200 + Math.random() * 1600; // ~4.2s to 5.8s
+
+      let startTime = null;
+      let lastSegment = -1;
+
+      function animate(time) {
+        if (!startTime) startTime = time;
+        const elapsed = time - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const eased = easeOutCubic(t);
+
+        currentAngle = startAngle + (targetAngle - startAngle) * eased;
+
+        // draw rotated wheel
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(currentAngle * Math.PI / 180);
+        ctx.translate(-centerX, -centerY);
+        drawWheel();
+        ctx.restore();
+
+        // compute which segment is under arrow using same formula as before
+        const normalized = ((currentAngle % 360) + 360) % 360;
+        const segIndex = Math.floor((360 - normalized) / segmentAngle) % n;
+
+        if (segIndex !== lastSegment) {
+          // play tick (safe-guard for autoplay)
+          try {
+            tickSound.currentTime = 0;
+            // some browsers disallow play before user gesture; this call is triggered by button click so should be allowed
+            tickSound.play();
+          } catch (e) { /* ignore */ }
+          lastSegment = segIndex;
+        }
+
+        // make arrow 'shake' during final phase for realism
+        if (t > 0.88) {
+          arrow.classList.add("shake");
+        } else {
+          arrow.classList.remove("shake");
+        }
+
+        if (t < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          // ensure final exact angle (avoid floating rounding issues)
+          currentAngle = targetAngle;
+          spinning = false;
+          arrow.classList.remove("shake");
+          document.getElementById("result").textContent = "🎉 You won: " + segments[winningIndex];
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // initial draw
+    drawWheel();
+  </script>
+</body>
+  </html>
