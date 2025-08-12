@@ -3,37 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spinning Wheel</title>
+<title>Prize Wheel</title>
 <style>
   body {
     font-family: Arial, sans-serif;
     text-align: center;
-    background: #fff;
+    background: #f0f0f0;
   }
-  #wheel-container {
-    position: relative;
-    width: 500px;
-    height: 500px;
-    margin: 50px auto;
-  }
-  #wheel {
+  canvas {
+    background: white;
     border-radius: 50%;
-    border: 5px solid #555;
-    transition: transform 4s ease-out;
   }
   #arrow {
     position: absolute;
-    top: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 20px solid transparent;
-    border-right: 20px solid transparent;
-    border-bottom: 40px solid red;
-    z-index: 10;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    background: red;
+    clip-path: polygon(0 50%, 100% 0, 100% 100%);
   }
-  #spin-btn {
+  button {
     margin-top: 20px;
     padding: 10px 20px;
     font-size: 18px;
@@ -43,81 +34,113 @@
 </head>
 <body>
 
-<h1>Spinning Wheel</h1>
-
-<div id="wheel-container">
+<h2>Spin the Wheel!</h2>
+<div style="position:relative; display:inline-block;">
+  <canvas id="wheelCanvas" width="500" height="500"></canvas>
   <div id="arrow"></div>
-  <canvas id="wheel" width="500" height="500"></canvas>
 </div>
-
-<button id="spin-btn">SPIN</button>
-<p id="result"></p>
+<br>
+<button onclick="spinWheel()">Spin</button>
 
 <script>
-const canvas = document.getElementById("wheel");
-const ctx = canvas.getContext("2d");
-const size = canvas.width;
-const center = size / 2;
-const slices = 8;
-const sliceAngle = (2 * Math.PI) / slices;
-const colors = ["#f36c6c", "#f7b733", "#fce77d", "#8ac926", "#1982c4", "#6a4c93", "#ff595e", "#ffca3a"];
-const prizes = [
-  { text: "50% off massage chair", imgSrc: "https://i.imgur.com/tfE5t.png" },
-  { text: "8D Cinema Ride 50% off", imgSrc: "https://i.imgur.com/utD0e.png" },
-  { text: "VR Cinema Ride 50% off", imgSrc: "https://i.imgur.com/xpQJe.png" },
-  { text: "Your favourite food Rs 100/- off", imgSrc: "https://i.imgur.com/NlYVh.png" },
-  { text: "Better luck next time", imgSrc: "https://i.imgur.com/ZG7Qn.png" },
-  { text: "100 gift tickets", imgSrc: "https://i.imgur.com/jrvEt.png" },
-  { text: "50 gift tickets", imgSrc: "https://i.imgur.com/jrvEt.png" },
-  { text: "Your favourite food Cold Coffee + Veg Burger", imgSrc: "https://i.imgur.com/9j2oU.png" }
+// ==========================
+// EDIT THIS SECTION ONLY
+// ==========================
+const rewards = [
+  { text: "Burger", image: "images/burger.png" },
+  { text: "Pizza", image: "images/pizza.png" },
+  { text: "Ice Cream", image: "images/icecream.png" },
+  { text: "Fries", image: "images/fries.png" },
+  { text: "Donut", image: "images/donut.png" },
+  { text: "Hotdog", image: "images/hotdog.png" },
+  { text: "Sandwich", image: "images/sandwich.png" },
+  { text: "Taco", image: "images/taco.png" }
 ];
+// ==========================
+
+const canvas = document.getElementById("wheelCanvas");
+const ctx = canvas.getContext("2d");
+const numSlices = rewards.length;
+const sliceAngle = (2 * Math.PI) / numSlices;
+let currentAngle = 0;
+let spinning = false;
+let spinVelocity = 0;
 
 function drawWheel() {
-  for (let i = 0; i < slices; i++) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const radius = canvas.width / 2;
+  ctx.translate(radius, radius);
+  ctx.rotate(currentAngle);
+
+  for (let i = 0; i < numSlices; i++) {
+    const startAngle = i * sliceAngle;
+    const endAngle = startAngle + sliceAngle;
+
     // Draw slice
     ctx.beginPath();
-    ctx.moveTo(center, center);
-    ctx.fillStyle = colors[i];
-    ctx.arc(center, center, center, i * sliceAngle, (i + 1) * sliceAngle);
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius, startAngle, endAngle);
+    ctx.fillStyle = i % 2 === 0 ? "#f9c74f" : "#90be6d";
     ctx.fill();
-    ctx.save();
-
-    // Draw text
-    ctx.translate(center, center);
-    ctx.rotate(i * sliceAngle + sliceAngle / 2);
-    ctx.textAlign = "right";
-    ctx.fillStyle = "#000";
-    ctx.font = "16px Arial";
-    ctx.fillText(prizes[i].text, center - 10, 10);
+    ctx.stroke();
 
     // Draw image
     const img = new Image();
-    img.src = prizes[i].imgSrc;
+    img.src = rewards[i].image;
+    ctx.save();
+    ctx.rotate(startAngle + sliceAngle / 2);
+    ctx.translate(radius * 0.65, 0);
+    ctx.rotate(Math.PI / 2);
     img.onload = () => {
-      ctx.save();
-      ctx.rotate(- (i * sliceAngle + sliceAngle / 2)); // reset rotation for image
-      ctx.drawImage(img, -30, -center + 20, 50, 50);
-      ctx.restore();
+      ctx.drawImage(img, -30, -30, 60, 60);
     };
     ctx.restore();
+
+    // Draw text
+    ctx.save();
+    ctx.rotate(startAngle + sliceAngle / 2);
+    ctx.translate(radius * 0.45, 0);
+    ctx.rotate(Math.PI / 2);
+    ctx.fillStyle = "black";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(rewards[i].text, 0, 35);
+    ctx.restore();
+  }
+
+  ctx.rotate(-currentAngle);
+  ctx.translate(-radius, -radius);
+}
+
+function spinWheel() {
+  if (!spinning) {
+    spinVelocity = Math.random() * 0.3 + 0.25; // initial spin speed
+    spinning = true;
+    animate();
   }
 }
 
-let currentRotation = 0;
-function spinWheel() {
-  const spinAngle = Math.random() * 360 + 1800; // 5+ spins
-  currentRotation += spinAngle;
-  canvas.style.transform = `rotate(${currentRotation}deg)`;
-
-  setTimeout(() => {
-    const normalizedRotation = currentRotation % 360;
-    const winningIndex = Math.floor((slices - (normalizedRotation / (360 / slices))) % slices);
-    document.getElementById("result").textContent = `You won: ${prizes[winningIndex].text}`;
-  }, 4200);
+function animate() {
+  if (spinning) {
+    currentAngle += spinVelocity;
+    spinVelocity *= 0.98; // slow down
+    if (spinVelocity < 0.002) {
+      spinning = false;
+      spinVelocity = 0;
+      declareWinner();
+    }
+  }
+  drawWheel();
+  requestAnimationFrame(animate);
 }
 
-document.getElementById("spin-btn").addEventListener("click", spinWheel);
+function declareWinner() {
+  const degrees = (currentAngle * 180 / Math.PI) % 360;
+  const index = Math.floor((360 - degrees) / (360 / numSlices)) % numSlices;
+  alert("You won: " + rewards[index].text + "!");
+}
 
+// Initial draw
 drawWheel();
 </script>
 
