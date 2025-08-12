@@ -1,148 +1,747 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prize Wheel</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Lucky Wheel — Mobile image picker (fixed layout)</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    background: #f0f0f0;
+  :root{
+    --bg:#f5f5f5;
+    --panel:#ffffff;
+    --accent:#007bff;
+    --muted:#666;
   }
-  canvas {
-    background: white;
-    border-radius: 50%;
+  body{
+    font-family:Arial,Helvetica,sans-serif;
+    background:radial-gradient(circle,#f5f5f5,#ddd);
+    margin:0;
+    padding:18px;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
   }
-  #arrow {
-    position: absolute;
-    top: 50%;
-    right: 10px;
+
+  .container {
+    width:100%;
+    max-width:1100px;
+    display:flex;
+    gap:20px;
+    align-items:flex-start;
+    justify-content:center;
+    box-sizing:border-box;
+  }
+
+  .left {
+    flex:0 0 540px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .right {
+    flex:1;
+    min-width:280px;
+  }
+
+  h1{margin:8px 0 12px;text-align:center}
+
+  /* Canvas wrapper keeps a square aspect-ratio using padding trick */
+  .canvas-wrap{
+    position:relative;
+    width:100%;
+    max-width:540px;
+    padding-top:100%; /* makes it a square */
+  }
+  canvas{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:var(--panel);
+    border-radius:50%;
+    box-shadow:0 0 25px rgba(0,0,0,0.25);
+    display:block;
+  }
+
+  .arrow {
+    position:absolute;
+    right: -8%;
+    top: 25%;
     transform: translateY(-50%);
-    width: 40px;
-    height: 40px;
-    background: red;
-    clip-path: polygon(0 50%, 100% 0, 100% 100%);
+    z-index:5;
+    rotate:180deg;
+    pointer-events:none;
   }
-  button {
-    margin-top: 20px;
-    padding: 10px 20px;
-    font-size: 18px;
-    cursor: pointer;
+
+  .panel {
+    background:var(--panel);
+    padding:12px;
+    border-radius:10px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.06);
   }
+  .panel label{display:block;font-size:13px;margin:6px 0;color:#333}
+  .panel select,.panel input{width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;font-size:14px;box-sizing:border-box}
+  .row{display:flex;gap:8px}
+  .btn{display:inline-block;background:var(--accent);color:#fff;padding:10px 12px;border-radius:10px;border:0;cursor:pointer;font-size:14px}
+  .btn.secondary{background:#6c757d}
+  #resultBox{margin-top:12px;background:#fff;padding:10px 12px;border-radius:8px;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  .img-preview{
+    width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #ddd;display:block;cursor:pointer;
+    background:linear-gradient(180deg,#fff,#f0f0f0);
+  }
+  small{color:var(--muted);font-size:13px}
+
+/* drag & drop UI */
+.drop-zone {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.preview-wrap{
+  position:relative;
+  width:72px;
+  height:72px;
+  border-radius:6px;
+  flex:0 0 72px;
+  overflow:hidden;
+}
+.preview-overlay {
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+  color:var(--muted);
+  pointer-events:none;
+  text-align:center;
+  padding:6px;
+  background:transparent;
+  transition:opacity .18s;
+}
+.drop-zone.dragover .preview-wrap {
+  outline: 3px dashed rgba(0,123,255,0.55);
+  background: rgba(0,123,255,0.03);
+  border-radius:6px;
+}
+
+/* when an image is present hide overlay */
+.preview-wrap.has-image .preview-overlay { opacity: 0; pointer-events: none; }
+
+.controls-inline { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+@media (max-width:880px){
+  .container{flex-direction:column;align-items:center;padding-bottom:20px}
+  .left{flex:none;width:92%}
+  .right{width:92%}
+  .panel{margin-top:12px}
+  .arrow{right:-10%}
+  .btn{width:100%;text-align:center;padding:12px 14px;font-size:16px}
+  .row{flex-direction:column}
+  .controls-inline{flex-direction:column; width:100%}
+  .preview-wrap{margin-bottom:6px}
+}
 </style>
 </head>
 <body>
+  <div style="width:100%;max-width:1100px;">
+    <h1 style="text-align:center">Lucky Wheel</h1>
+    <div class="container">
+      <div class="left">
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="wheel"></canvas>
+          <div class="arrow" aria-hidden="true">
+            <svg width="56" height="96" viewBox="0 0 48 80" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 0 L48 40 L0 80 Z" fill="#e53935" stroke="#b71c1c" stroke-width="1"/>
+            </svg>
+          </div>
+        </div>
 
-<h2>Spin the Wheel!</h2>
-<div style="position:relative; display:inline-block;">
-  <canvas id="wheelCanvas" width="500" height="500"></canvas>
-  <div id="arrow"></div>
-</div>
-<br>
-<button onclick="spinWheel()">Spin</button>
+        <div id="resultBox" style="width:100%;max-width:540px;margin-top:12px">
+          <div id="resultText">Ready — edit in code or use controls.</div>
+        </div>
+
+        <div style="margin-top:12px; width:100%; max-width:540px; display:flex; gap:8px;">
+          <button id="spinBtn" class="btn" style="flex:1">Spin</button>
+          <button id="resetBtn" class="btn secondary" style="flex:0 0 120px">Reset</button>
+        </div>
+      </div>
+
+      <div class="right panel">
+        <label for="sliceSelect">Pick slice to edit</label>
+        <select id="sliceSelect"></select>
+
+        <label for="txt">Reward text</label>
+        <input id="txt" type="text" placeholder="Prize text (appears below image)">
+
+        <label for="imgUrl">Image URL (paste here) — paste + Enter auto-applies</label>
+        <input id="imgUrl" type="url" placeholder="https://example.com/image.png">
+
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+          <div id="dropZone" class="drop-zone" title="Drop an image file here">
+            <div class="preview-wrap" id="previewWrap">
+              <img id="imgPreview" class="img-preview" src="" alt="preview">
+              <div class="preview-overlay">Drop image<br>or tap preview</div>
+            </div>
+
+            <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+              <div class="controls-inline">
+                <button class="btn" id="saveBtn">Save Slice</button>
+                <button class="btn" id="chooseBtn">Choose Image</button>
+                <button class="btn" id="cameraBtn">Use Camera</button>
+                <button class="btn secondary" id="fillDefaultsBtn">Fill example GitHub URLs</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <small>Tip: tap the preview to choose from mobile storage, or tap "Use Camera" to take a photo (device-dependent). Changes are temporary until reload.</small>
+        </div>
+
+        <!-- Hidden file inputs for mobile pickers -->
+        <input id="fileInput" type="file" accept="image/*" style="display:none">
+        <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none">
+      </div>
+    </div>
+  </div>
 
 <script>
-// ==========================
-// EDIT THIS SECTION ONLY
-// ==========================
-const rewards = [
-  { text: "Burger", image: "images/png-transparent-massage-chair-recliner-furniture-chair-angle-physical-fitness-furniture.png" },
-  { text: "Pizza", image: "images/pizza.png" },
-  { text: "Ice Cream", image: "images/icecream.png" },
-  { text: "Fries", image: "images/fries.png" },
-  { text: "Donut", image: "images/donut.png" },
-  { text: "Hotdog", image: "images/hotdog.png" },
-  { text: "Sandwich", image: "images/sandwich.png" },
-  { text: "Taco", image: "images/taco.png" }
+/* Fixed layout + file picker code (keeps previous functionality) */
+
+/* === EDITABLE (change here in code) === */
+const defaultSlices = [
+  { text: "50% off massage chair", img: "https://via.placeholder.com/160?text=Chair" },
+  { text: "50% off 8D cinema ride", img: "https://via.placeholder.com/160?text=8D" },
+  { text: "50% off VR cinema ride", img: "https://via.placeholder.com/160?text=VR" },
+  { text: "Your favourite food 100rs off", img: "https://via.placeholder.com/160?text=Food" },
+  { text: "Better luck next time", img: "https://via.placeholder.com/160?text=:-(" },
+  { text: "100 gift tickets", img: "https://via.placeholder.com/160?text=100" },
+  { text: "50 gift tickets", img: "https://via.placeholder.com/160?text=50" },
+  { text: "Cold coffee + burger", img: "https://via.placeholder.com/160?text=Coffee" }
 ];
-// ==========================
+/* === end editable === */
 
-const canvas = document.getElementById("wheelCanvas");
-const ctx = canvas.getContext("2d");
-const numSlices = rewards.length;
-const sliceAngle = (2 * Math.PI) / numSlices;
-let currentAngle = 0;
+const COLORS = ["#e74c3c","#f1c40f","#2ecc71","#3498db","#9b59b6","#e67e22","#ff8da1","#9be7ff"];
+
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+
+let slices = JSON.parse(JSON.stringify(defaultSlices));
+let imgObjects = new Array(slices.length).fill(null);
+
+let cssSize = 500;
+let backingStore = Math.max(1, window.devicePixelRatio || 1);
+
+let cx = 0, cy = 0, radius = 0;
+let sliceCount = slices.length;
+let sliceAngle = (2*Math.PI)/sliceCount;
+
+/* spin state */
+let currentRotation = 0;
 let spinning = false;
-let spinVelocity = 0;
+let animFrame = null;
 
+/* controls */
+const sliceSelect = document.getElementById("sliceSelect");
+const txtInput = document.getElementById("txt");
+const imgInput = document.getElementById("imgUrl");
+const saveBtn = document.getElementById("saveBtn");
+const chooseBtn = document.getElementById("chooseBtn");
+const cameraBtn = document.getElementById("cameraBtn");
+const spinBtn = document.getElementById("spinBtn");
+const resetBtn = document.getElementById("resetBtn");
+const resultText = document.getElementById("resultText");
+const imgPreview = document.getElementById("imgPreview");
+const fillDefaultsBtn = document.getElementById("fillDefaultsBtn");
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const cameraInput = document.getElementById('cameraInput');
+const previewWrap = document.getElementById('previewWrap');
+
+/* tick */
+const tick = new Audio("https://www.soundjay.com/mechanical/sounds/mechanical-click-1.mp3");
+tick.volume = 0.15;
+
+/* helpers */
+function mod(a,m){return ((a % m) + m) % m;}
+function contrastColor(hex){
+  if (!hex) return "#000";
+  const c = hex.replace("#","");
+  const r = parseInt(c.substring(0,2),16);
+  const g = parseInt(c.substring(2,4),16);
+  const b = parseInt(c.substring(4,6),16);
+  const brightness = (r*299 + g*587 + b*114)/1000;
+  return brightness > 140 ? "#000" : "#fff";
+}
+
+/* ===== responsive canvas sizing (fixed DPR handling) ===== */
+function resizeCanvasToFit() {
+  // CSS square wrapper width in px (computed)
+  const wrap = document.getElementById('canvasWrap');
+  const style = getComputedStyle(wrap);
+  // compute inner CSS size (width minus padding is fine, since wrapper uses padding-top)
+  const rect = wrap.getBoundingClientRect();
+  cssSize = Math.round(rect.width); // square, so width==height
+  // backing pixel size
+  backingStore = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.round(cssSize * backingStore);
+  canvas.height = Math.round(cssSize * backingStore);
+  // set transform so drawing commands use CSS px coordinates
+  ctx.setTransform(backingStore, 0, 0, backingStore, 0, 0);
+
+  // geometry in CSS px units
+  cx = cssSize / 2;
+  cy = cssSize / 2;
+  radius = Math.min(cx, cy) - 10;
+  sliceCount = slices.length;
+  sliceAngle = (2*Math.PI)/sliceCount;
+
+  drawWheel();
+}
+
+/* ===== image loading ===== */
+function loadAllImages() {
+  const promises = slices.map((s,i) => new Promise(resolve => {
+    if (!s.img) { imgObjects[i] = null; return resolve({i,ok:false}); }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => { imgObjects[i] = img; resolve({i,ok:true}); };
+    img.onerror = () => { imgObjects[i] = null; resolve({i,ok:false}); };
+    img.src = s.img;
+  }));
+  return Promise.all(promises);
+}
+
+/* ===== drawing ===== */
 function drawWheel() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const radius = canvas.width / 2;
-  ctx.translate(radius, radius);
-  ctx.rotate(currentAngle);
+  ctx.clearRect(0,0,cssSize, cssSize);
 
-  for (let i = 0; i < numSlices; i++) {
-    const startAngle = i * sliceAngle;
-    const endAngle = startAngle + sliceAngle;
-
-    // Draw slice
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(currentRotation);
+  for (let i=0;i<sliceCount;i++){
+    const start = i * sliceAngle;
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, radius, startAngle, endAngle);
-    ctx.fillStyle = i % 2 === 0 ? "#f9c74f" : "#90be6d";
+    ctx.moveTo(0,0);
+    ctx.arc(0,0, radius, start, start + sliceAngle, false);
+    ctx.closePath();
+    ctx.fillStyle = COLORS[i % COLORS.length];
     ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Draw image
-    const img = new Image();
-    img.src = rewards[i].image;
-    ctx.save();
-    ctx.rotate(startAngle + sliceAngle / 2);
-    ctx.translate(radius * 0.65, 0);
-    ctx.rotate(Math.PI / 2);
-    img.onload = () => {
-      ctx.drawImage(img, -30, -30, 60, 60);
-    };
-    ctx.restore();
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(Math.cos(start)*radius, Math.sin(start)*radius);
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.restore();
 
-    // Draw text
-    ctx.save();
-    ctx.rotate(startAngle + sliceAngle / 2);
-    ctx.translate(radius * 0.45, 0);
-    ctx.rotate(Math.PI / 2);
-    ctx.fillStyle = "black";
-    ctx.font = "14px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(rewards[i].text, 0, 35);
-    ctx.restore();
+  // draw images + text upright (screen coords)
+  const imgW = Math.round(radius * 0.32);
+  const imgH = imgW;
+  const imgDistance = radius * 0.52;
+  const textDistance = radius * 0.78;
+
+  for (let i=0;i<sliceCount;i++){
+    const angle = currentRotation + i*sliceAngle + sliceAngle/2;
+    const px = cx + Math.cos(angle) * imgDistance;
+    const py = cy + Math.sin(angle) * imgDistance;
+
+    // image
+    const img = imgObjects[i];
+    if (img && img.complete) {
+      ctx.drawImage(img, px - imgW/2, py - imgH/2 - 12, imgW, imgH);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(px - imgW/2, py - imgH/2 - 12, imgW, imgH);
+    }
+
+    // safe width and lines
+    const chord = 2 * textDistance * Math.sin(sliceAngle/2);
+    const maxWidth = Math.max(50, chord - 12);
+    const availableRadial = radius - textDistance - 6;
+    const baseLineHeight = Math.max(12, Math.round(radius * 0.06));
+    const maxLines = Math.max(1, Math.floor(availableRadial / baseLineHeight));
+
+    const fg = contrastColor(COLORS[i % COLORS.length]);
+    wrapTextFitted(ctx, slices[i].text, px, py + imgH/2 + 10, maxWidth, baseLineHeight, maxLines, fg);
   }
 
-  ctx.rotate(-currentAngle);
-  ctx.translate(-radius, -radius);
-}
+  // center hub
+  ctx.beginPath();
+  ctx.arc(cx, cy, Math.max(28, radius * 0.12), 0, Math.PI*2);
+  const hubGrad = ctx.createLinearGradient(cx-44,cy-44,cx+44,cy+44);
+  hubGrad.addColorStop(0,"#ddd"); hubGrad.addColorStop(1,"#999");
+  ctx.fillStyle = hubGrad; ctx.fill();
+  ctx.strokeStyle = "#666"; ctx.lineWidth = 2; ctx.stroke();
 
-function spinWheel() {
-  if (!spinning) {
-    spinVelocity = Math.random() * 0.3 + 0.25; // initial spin speed
-    spinning = true;
-    animate();
+  // bulbs
+  const dots = 26;
+  for (let i=0;i<dots;i++){
+    const a = (2*Math.PI/dots)*i + currentRotation;
+    const x = cx + Math.cos(a) * (radius + 14);
+    const y = cy + Math.sin(a) * (radius + 14);
+    ctx.beginPath();
+    ctx.arc(x,y, Math.max(3, radius*0.02), 0, Math.PI*2);
+    ctx.fillStyle = i%2? "#fff700":"#ff4d4d";
+    ctx.fill();
   }
 }
 
-function animate() {
-  if (spinning) {
-    currentAngle += spinVelocity;
-    spinVelocity *= 0.98; // slow down
-    if (spinVelocity < 0.002) {
+/* text-fitting (uses textBaseline = top for consistent placement) */
+function wrapTextFitted(ctx, text, centerX, startY, maxWidth, lineHeight, maxLines, color){
+  const MIN_FONT = Math.max(10, Math.round(radius*0.03));
+  const MAX_FONT = Math.min(14, Math.round(radius*0.045));
+  let fontSize = MAX_FONT;
+  let lines = [];
+
+  function splitLines(fontSize) {
+    ctx.font = `bold ${fontSize}px Arial`;
+    const words = (""+text).split(" ");
+    const out = []; let line = "";
+    for (let n=0;n<words.length;n++){
+      const test = (line + words[n] + " ").trim();
+      if (ctx.measureText(test).width > maxWidth && line !== "") {
+        out.push(line.trim()); line = words[n] + " ";
+      } else {
+        line = (line + words[n] + " ");
+      }
+    }
+    if (line.trim() !== "") out.push(line.trim());
+    return out;
+  }
+
+  while (fontSize >= MIN_FONT) {
+    lines = splitLines(fontSize);
+    if (lines.length <= maxLines) break;
+    fontSize--;
+  }
+
+  if (lines.length > maxLines) {
+    const allowed = maxLines;
+    const truncated = lines.slice(0,allowed);
+    let last = truncated[allowed-1];
+    while (ctx.measureText(last + "…").width > maxWidth && last.length > 0) { last = last.slice(0,-1); }
+    truncated[allowed-1] = last + "…";
+    lines = truncated;
+  }
+
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = `bold ${fontSize}px Arial`;
+  for (let i=0;i<lines.length;i++){
+    ctx.fillText(lines[i], centerX, startY + i*lineHeight);
+  }
+}
+
+/* spin (deterministic landing) */
+/* Replaced uniform picker with weighted picker; uses `probabilities` array. */
+let probabilities = slices.map(() => 1); // default equal weights (1 per slice)
+
+function pickWinningIndex(){
+  // ensure probabilities array length matches slices
+  if (!Array.isArray(probabilities) || probabilities.length !== slices.length) {
+    probabilities = slices.map(() => 1);
+  }
+  // compute total weight
+  const total = probabilities.reduce((sum, w) => sum + (Number(w) || 0), 0);
+  if (total <= 0) {
+    // fallback to uniform random
+    return Math.floor(Math.random() * sliceCount);
+  }
+  let r = Math.random() * total;
+  for (let i = 0; i < slices.length; i++){
+    r -= (Number(probabilities[i]) || 0);
+    if (r < 0) return i;
+  }
+  return slices.length - 1;
+}
+
+function spinToIndex(targetIndex){
+  if (spinning) return;
+  spinning = true;
+  resultText.innerText = "Spinning...";
+
+  const sliceCenter = targetIndex * sliceAngle + sliceAngle/2;
+  const extraRounds = 3 + Math.floor(Math.random()*3);
+  const finalRotation = -sliceCenter + extraRounds * 2*Math.PI;
+  const startRot = currentRotation;
+  const delta = finalRotation - startRot;
+  const duration = 4200 + Math.random()*1600;
+  const startTime = performance.now();
+  let lastTick = -1;
+
+  function step(now){
+    const t = Math.min(1, (now - startTime)/duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    currentRotation = startRot + delta * eased;
+
+    const angleAtArrow = mod(-currentRotation + 2*Math.PI, 2*Math.PI);
+    const idxAtArrow = Math.floor(mod(angleAtArrow + sliceAngle/2, 2*Math.PI) / sliceAngle) % sliceCount;
+    if (idxAtArrow !== lastTick) {
+      try { tick.currentTime = 0; tick.play(); } catch(e) {}
+      lastTick = idxAtArrow;
+    }
+
+    drawWheel();
+    if (t < 1) animFrame = requestAnimationFrame(step);
+    else {
       spinning = false;
-      spinVelocity = 0;
-      declareWinner();
+      currentRotation = mod(currentRotation, 2*Math.PI);
+      drawWheel();
+      resultText.innerHTML = `🎉 You won: <strong>${slices[targetIndex].text}</strong>`;
     }
   }
-  drawWheel();
-  requestAnimationFrame(animate);
+  animFrame = requestAnimationFrame(step);
 }
 
-function declareWinner() {
-  const degrees = (currentAngle * 180 / Math.PI) % 360;
-  const index = Math.floor((360 - degrees) / (360 / numSlices)) % numSlices;
-  alert("You won: " + rewards[index].text + "!");
+/* ========== Controls & editor (kept) ========== */
+function populateSelect(){
+  sliceSelect.innerHTML = "";
+  slices.forEach((s,i)=>{
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = `Slice ${i+1}`;
+    sliceSelect.appendChild(opt);
+  });
+  updateInputsFromSelection();
+}
+function updateInputsFromSelection(){
+  const i = Number(sliceSelect.value || 0);
+  txtInput.value = slices[i].text || "";
+  imgInput.value = slices[i].img || "";
+  imgPreview.src = slices[i].img || "";
+  previewWrap.classList.toggle('has-image', !!slices[i].img);
+}
+function updateSliceFromInputs(){
+  const i = Number(sliceSelect.value || 0);
+  const newText = txtInput.value.trim();
+  const newImg = imgInput.value.trim();
+  if (newText) slices[i].text = newText;
+  if (newImg) slices[i].img = newImg;
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => { imgObjects[i] = img; drawWheel(); imgPreview.src = slices[i].img; previewWrap.classList.add('has-image'); resultText.innerText = `Updated slice ${i+1}`; };
+  img.onerror = () => { imgObjects[i] = null; drawWheel(); imgPreview.src = ""; previewWrap.classList.remove('has-image'); resultText.innerText = `Image failed to load (slice ${i+1})`; };
+  img.src = slices[i].img;
 }
 
-// Initial draw
-drawWheel();
+/* drag & drop / file pick handlers */
+function handleFileDrop(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    resultText.innerText = "Please provide a valid image file.";
+    return;
+  }
+  const i = Number(sliceSelect.value || 0);
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    imgInput.value = dataUrl;
+    slices[i].img = dataUrl;
+
+    const img = new Image();
+    img.onload = () => {
+      imgObjects[i] = img;
+      drawWheel();
+      imgPreview.src = dataUrl;
+      previewWrap.classList.add('has-image');
+      resultText.innerText = `Updated slice ${i+1} (from device)`;
+    };
+    img.onerror = () => {
+      imgObjects[i] = null;
+      drawWheel();
+      imgPreview.src = "";
+      previewWrap.classList.remove('has-image');
+      resultText.innerText = `Selected image failed to load`;
+    };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); });
+dropZone.addEventListener('dragenter', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', (e) => { dropZone.classList.remove('dragover'); });
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  const files = (e.dataTransfer && e.dataTransfer.files) || [];
+  if (files.length > 0) handleFileDrop(files[0]);
+});
+
+/* file-picker & camera handlers */
+chooseBtn.addEventListener('click', () => fileInput.click());
+cameraBtn.addEventListener('click', () => cameraInput.click());
+imgPreview.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+  const f = (e.target.files && e.target.files[0]);
+  if (f) handleFileDrop(f);
+  fileInput.value = "";
+});
+cameraInput.addEventListener('change', (e) => {
+  const f = (e.target.files && e.target.files[0]);
+  if (f) handleFileDrop(f);
+   cameraInput.value = "";
+});
+
+/* paste/enter behaviours for URL */
+imgInput.addEventListener("paste", (ev) => {
+  const pasted = (ev.clipboardData || window.clipboardData).getData('text');
+  if (pasted) setTimeout(()=> { imgInput.value = pasted.trim(); updateSliceFromInputs(); }, 10);
+});
+imgInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); updateSliceFromInputs(); } });
+txtInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); updateSliceFromInputs(); } });
+
+sliceSelect.addEventListener("change", updateInputsFromSelection);
+saveBtn.addEventListener("click", updateSliceFromInputs);
+fillDefaultsBtn.addEventListener("click", ()=> {
+  const base = "https://raw.githubusercontent.com/kush77-dev/kush77-dev/main/images/";
+  const fn = ["chair.png","cinema8d.png","vrcinema.png","food100.png","betterluck.png","gift100.png","gift50.png","coldcoffee_burger.png"];
+  slices.forEach((s,i)=> s.img = base + fn[i]);
+  loadAllImages().then(()=> { drawWheel(); populateSelect(); resultText.innerText = "Filled GitHub example URLs"; imgPreview.src = slices[Number(sliceSelect.value)]; previewWrap.classList.add('has-image'); });
+});
+
+/* When spin button is clicked we pick by weighted probabilities */
+spinBtn.addEventListener("click", ()=> { if (spinning) return; const target = pickWinningIndex(); spinToIndex(target); });
+
+resetBtn.addEventListener("click", ()=> {
+  slices = JSON.parse(JSON.stringify(defaultSlices));
+  imgObjects = new Array(slices.length).fill(null);
+  // reset probabilities to equal weights for new slices
+  probabilities = slices.map(() => 1);
+  loadAllImages().then(()=> { drawWheel(); populateSelect(); resultText.innerText = "Reset to defaults"; imgPreview.src = slices[0].img; previewWrap.classList.toggle('has-image', !!slices[0].img); });
+});
+
+window.addEventListener('resize', () => {
+  resizeCanvasToFit();
+});
+
+/* initial load */
+loadAllImages().then(()=> {
+  populateSelect();
+  // initialize probabilities to equal weights after initial slices loaded
+  probabilities = slices.map(() => 1);
+  resizeCanvasToFit();
+  resultText.innerText = "Ready — press Spin.";
+});
+
+window._wheel = { slices, drawWheel, spinToIndex, loadAllImages };
+
+/* ===========================
+   Hidden Admin (probability editor)
+   - invisible button top-right (tap to open)
+   - password protected (change ADMIN_PASSWORD below)
+   =========================== */
+
+/* Invisible Admin Button */
+const ADMIN_PASSWORD = "mySecret123"; // <-- change this to your secret
+// Create admin button + panel elements and append to body so they don't interfere with existing layout
+const adminBtn = document.createElement('button');
+adminBtn.id = 'adminBtn';
+adminBtn.style.position = 'absolute';
+adminBtn.style.top = '10px';
+adminBtn.style.right = '10px';
+adminBtn.style.opacity = '0';
+adminBtn.style.width = '40px';
+adminBtn.style.height = '40px';
+adminBtn.textContent = '⚙️';
+document.body.appendChild(adminBtn);
+
+const adminPanel = document.createElement('div');
+adminPanel.id = 'adminPanel';
+adminPanel.style.display = 'none';
+adminPanel.style.position = 'absolute';
+adminPanel.style.top = '60px';
+adminPanel.style.right = '10px';
+adminPanel.style.background = '#fff';
+adminPanel.style.padding = '10px';
+adminPanel.style.border = '1px solid #ccc';
+adminPanel.style.zIndex = '999';
+adminPanel.innerHTML = `
+  <h3 style="margin:6px 0 8px 0;font-size:15px;">Edit Prize Probabilities</h3>
+  <div id="probabilityInputs" style="max-height:260px; overflow:auto; margin-bottom:8px;"></div>
+  <div style="display:flex;gap:8px;">
+    <button id="saveProbsBtn" class="btn">Save</button>
+    <button id="closeProbsBtn" class="btn secondary">Close</button>
+  </div>
+  <div style="margin-top:8px;font-size:12px;color:#666">
+    Enter non-negative weights. Higher weight → higher chance. Values don't have to sum to 1.
+  </div>
+`;
+document.body.appendChild(adminPanel);
+
+const probabilityInputsContainer = adminPanel.querySelector('#probabilityInputs');
+const saveProbsBtn = adminPanel.querySelector('#saveProbsBtn');
+const closeProbsBtn = adminPanel.querySelector('#closeProbsBtn');
+
+adminBtn.addEventListener('click', () => {
+  const pass = prompt('Enter admin password:');
+  if (pass === ADMIN_PASSWORD) {
+    showAdminPanel();
+  } else {
+    // quietly ignore wrong password
+    console.log('admin: wrong password');
+  }
+});
+
+function showAdminPanel(){
+  // ensure probabilities array matches slices
+  if (!Array.isArray(probabilities) || probabilities.length !== slices.length) {
+    probabilities = slices.map(() => 1);
+  }
+  loadProbabilityInputs();
+  adminPanel.style.display = 'block';
+}
+function hideAdminPanel(){ adminPanel.style.display = 'none'; }
+
+closeProbsBtn.addEventListener('click', hideAdminPanel);
+
+function loadProbabilityInputs(){
+  probabilityInputsContainer.innerHTML = '';
+  for (let i = 0; i < slices.length; i++){
+    const div = document.createElement('div');
+    div.style.display = 'flex';
+    div.style.gap = '8px';
+    div.style.alignItems = 'center';
+    div.style.marginBottom = '6px';
+    const label = document.createElement('label');
+    label.textContent = `Slice ${i+1}`;
+    label.style.width = '70px';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = '0.01';
+    input.min = '0';
+    input.id = `prob${i}`;
+    input.value = (typeof probabilities[i] !== 'undefined') ? probabilities[i] : 1;
+    input.style.flex = '1';
+    div.appendChild(label);
+    div.appendChild(input);
+    probabilityInputsContainer.appendChild(div);
+  }
+}
+
+saveProbsBtn.addEventListener('click', () => {
+  const newProbs = [];
+  for (let i = 0; i < slices.length; i++){
+    const v = parseFloat(document.getElementById(`prob${i}`).value);
+    newProbs.push(isNaN(v) || v < 0 ? 0 : v);
+  }
+  // if all zeros, fallback to equal weights of 1 to avoid dead state
+  const allZero = newProbs.every(v => v === 0);
+  probabilities = allZero ? slices.map(() => 1) : newProbs;
+  alert('Probabilities updated');
+  hideAdminPanel();
+});
+
+/* End of admin code */
 </script>
-
 </body>
 </html>
