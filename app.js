@@ -18,17 +18,30 @@ const itemsList = document.getElementById('itemsList');
 
 // handle login / signup
 loginBtn.addEventListener('click', async () => {
-  const { error } = await supabase.auth.signInWithPassword({
-    email: emailInput.value,
-    password: passwordInput.value,
+  const email = emailInput.value.trim();
+  const password = passwordInput.value.trim();
+  if (!email || !password) {
+    alert("Please enter email and password");
+    return;
+  }
+
+  // try to sign in
+  let { error, data } = await supabase.auth.signInWithPassword({
+    email,
+    password,
   });
+
   if (error) {
-    // if no user, sign up instead
-    const { error: signUpError } = await supabase.auth.signUp({
-      email: emailInput.value,
-      password: passwordInput.value,
+    // try to sign up
+    let { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
     });
-    if (signUpError) alert(signUpError.message);
+    if (signUpError) {
+      alert("Sign up error: " + signUpError.message);
+    } else {
+      alert("Check your email for confirmation link, then login again.");
+    }
   } else {
     showPOS();
   }
