@@ -1,5 +1,5 @@
 // Replace with your Supabase credentials:
-const SUPABASE_URL = "https://hpdngstjkpwxpmwicohc.supabase.co";
+const SUPABASE_URL = "https://hpdngstjkpwxpmwicohc.supabase.com";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwZG5nc3Rqa3B3eHBtd2ljb2hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxMTU5MDIsImV4cCI6MjA3MzY5MTkwMn0.fAVmQTLJ2RA0cP1Uly_v7lN4JCL5Ea2fMWvOwd_XuXI";
 
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
