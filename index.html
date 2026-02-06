@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Music Generator</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0f0f0f, #1c1c1c);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 400px;
+      background: #121212;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    p {
+      text-align: center;
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    textarea, select, button {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+    }
+
+    textarea {
+      resize: none;
+      height: 80px;
+    }
+
+    select {
+      background: #1f1f1f;
+      color: white;
+    }
+
+    button {
+      background: #6c5ce7;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    .status {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 13px;
+      color: #ccc;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>🎧 AI Music</h1>
+    <p>Create music with AI</p>
+
+    <textarea id="prompt" placeholder="Describe your music (example: epic anime fight music, fast, intense)"></textarea>
+
+    <select id="style">
+      <option value="anime">Anime</option>
+      <option value="cinematic">Cinematic</option>
+      <option value="lofi">Lo-Fi</option>
+      <option value="game">Game Background</option>
+    </select>
+
+    <button id="generateBtn" onclick="generateMusic()">Generate Music</button>
+
+    <div class="status" id="status"></div>
+
+    <audio id="audioPlayer" controls hidden></audio>
+  </div>
+
+  <script>
+    async function generateMusic() {
+      const prompt = document.getElementById("prompt").value;
+      const style = document.getElementById("style").value;
+      const button = document.getElementById("generateBtn");
+      const status = document.getElementById("status");
+      const audio = document.getElementById("audioPlayer");
+
+      if (!prompt) {
+        alert("Please enter a prompt");
+        return;
+      }
+
+      button.disabled = true;
+      status.textContent = "Generating music... ⏳";
+      audio.hidden = true;
+
+      try {
+        // 🔴 REPLACE THIS WITH YOUR AI API URL
+        const response = await fetch("YOUR_AI_API_ENDPOINT_HERE", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            prompt: prompt,
+            style: style
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error("AI request failed");
+        }
+
+        const data = await response.json();
+
+        // Expecting audio URL from backend
+        audio.src = data.audio_url;
+        audio.hidden = false;
+        audio.play();
+
+        status.textContent = "Music ready 🎶";
+      } catch (error) {
+        console.error(error);
+        status.textContent = "Error generating music ❌";
+      }
+
+      button.disabled = false;
+    }
+  </script>
+
+</body>
+</html>
